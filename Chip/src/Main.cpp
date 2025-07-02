@@ -4,8 +4,15 @@
 #include <SDL.h>
 #undef main
 
+#include "Screen.h"
+
 #define SCREEN_WIDTH    64
 #define SCREEN_HEIGHT   32
+
+inline uint32_t RGBAToInt(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+	return (r << 0) | (g << 8) | (b << 16) | (a << 24);
+}
 
 int main()
 {
@@ -28,52 +35,31 @@ int main()
 		return 1;
 	}
 
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	if (renderer == nullptr)
+	uint32_t* pixels = new uint32_t[SCREEN_WIDTH * SCREEN_HEIGHT];
+	for (auto i = 0; i < SCREEN_WIDTH; i++)
 	{
-		SDL_Log("Unable to create SDL renderer: %s", SDL_GetError());
-		return 1;
+		for (auto j = 0; j < SCREEN_HEIGHT; j++)
+		{
+			pixels[j * SCREEN_WIDTH + i] = RGBAToInt(0, 0, 0, 255);
+		}
 	}
 
-	SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-	SDL_Texture* texture = SDL_CreateTexture(
-		renderer,
-		SDL_PIXELFORMAT_RGBA32,
-		SDL_TEXTUREACCESS_STREAMING,
-		SCREEN_WIDTH,
-		SCREEN_HEIGHT
-	);
-
-	if (texture == nullptr)
-	{
-		SDL_Log("Unable to create texture: %s", SDL_GetError());
-	}
-
-	uint8_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT * 4] = { 0 };
-	for (auto i = 0; i < SCREEN_WIDTH * 4; i += 4)
-	{
-		pixels[12 * SCREEN_WIDTH + i + 0] = 255;
-		pixels[12 * SCREEN_WIDTH + i + 1] = 255;
-		pixels[12 * SCREEN_WIDTH + i + 2] = 255;
-		pixels[12 * SCREEN_WIDTH + i + 3] = 255;
-	}
-
-	int texturePitch = 0;
-	void* texturePixels = nullptr;
-	if (SDL_LockTexture(texture, nullptr, &texturePixels, &texturePitch) != 0)
-	{
-		SDL_Log("Unable to lock texture: %s", SDL_GetError());
-	}
-	else
-	{
-		memcpy(texturePixels, pixels, texturePitch * SCREEN_HEIGHT);
-	}
-	SDL_UnlockTexture(texture);
+	screen->UpdateScreen(pixels);
 
 	bool loop = true;
 	SDL_Event e;
+	
+	int g = 0;
+	int adder = 1;
+	float timer = 0.0f;
+	float timeBetween = 5.0f;
+
+	uint64_t NOW = SDL_GetPerformanceCounter();
+	uint64_t LAST = 0;
+	double deltaTime = 0;
+
 	while (loop)
 	{
 		while (SDL_PollEvent(&e) != 0)
@@ -84,13 +70,58 @@ int main()
 			}
 		}
 
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-		SDL_RenderPresent(renderer);
+		LAST = NOW;
+		NOW = SDL_GetPerformanceCounter();
+
+		deltaTime = (double)((NOW - LAST) * 1000 / (double)SDL_GetPerformanceFrequency());
+
+		bool swap = false;
+		for (auto i = 0; i < SCREEN_HEIGHT; i++)
+		{
+			for (auto j = 0; j < SCREEN_WIDTH; j++)
+			{
+				if (swap)
+				{
+					if ((i * SCREEN_WIDTH + j) % 2 != 0)
+					{
+						pixels[i * SCREEN_WIDTH + j] = RGBAToInt(g, g, g, 255);
+					}
+				}
+				else
+				{
+					if ((i * SCREEN_WIDTH + j) % 2 == 0)
+					{
+						pixels[i * SCREEN_WIDTH + j] = RGBAToInt(g, g, g, 255);
+					}
+				}
+			}
+			swap = !swap;
+		}
+		screen->UpdateScreen(pixels);
+
+		if (timer <= 0.0f)
+		{
+			g += adder;
+			if (g >= 255)
+			{
+				adder = -1;
+			}
+			else if (g <= 0)
+			{
+				adder = 1;
+			}
+			timer = timeBetween;
+		}
+		else
+		{
+			timer -= deltaTime;
+		}
+
+		screen->Render();
 	}
 
-	SDL_DestroyTexture(texture);
-	SDL_DestroyRenderer(renderer);
+	delete[] pixels;
+	delete screen;
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 
