@@ -1,6 +1,6 @@
-workspace "Application"
+workspace "Chip"
 	architecture "x86_64"
-	startproject "Application"
+	startproject "Chip"
 
 	configurations
 	{
@@ -18,4 +18,4 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 group "Dependencies"
 group ""
 
-include "Application"
+include "Chip"
