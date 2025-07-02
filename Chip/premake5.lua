@@ -16,10 +16,13 @@ project "Chip"
 	includedirs
 	{
 		"src",
+		"%{IncludeDir.SDL}",
 	}
 
 	links
 	{
+		"SDL2",
+		"SDL2main"
 	}
 
 	filter "system:windows"
