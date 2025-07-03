@@ -1,18 +1,20 @@
 #include <iostream>
 #include <algorithm>
+#include <string>
+#include <cmath>
 
 #include <SDL.h>
 #undef main
 
 #include "Screen.h"
+#include "Timer.h"
+#include "Emulator.h"
 
 #define SCREEN_WIDTH    64
 #define SCREEN_HEIGHT   32
+#define TARGET_FPS		60
 
-inline uint32_t RGBAToInt(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-	return (r << 0) | (g << 8) | (b << 16) | (a << 24);
-}
+const int SCREEN_TICKS_PER_FRAME = 1000 / TARGET_FPS;
 
 int main()
 {
@@ -36,32 +38,24 @@ int main()
 	}
 
 	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-	uint32_t* pixels = new uint32_t[SCREEN_WIDTH * SCREEN_HEIGHT];
-	for (auto i = 0; i < SCREEN_WIDTH; i++)
-	{
-		for (auto j = 0; j < SCREEN_HEIGHT; j++)
-		{
-			pixels[j * SCREEN_WIDTH + i] = RGBAToInt(0, 0, 0, 255);
-		}
-	}
-
-	screen->UpdateScreen(pixels);
+	Chip::Emulator emulator("ibm");
 
 	bool loop = true;
 	SDL_Event e;
-	
-	int g = 0;
-	int adder = 1;
-	float timer = 0.0f;
-	float timeBetween = 5.0f;
 
-	uint64_t NOW = SDL_GetPerformanceCounter();
-	uint64_t LAST = 0;
-	double deltaTime = 0;
+	Chip::Timer fpsTimer;
+	Chip::Timer capTimer;
+
+	float deltaTime = 0.0f;
+	float previousTime = 0.0f;
+
+	int countedFrames = 0;
+	fpsTimer.Start();
 
 	while (loop)
 	{
+		capTimer.Start();
+
 		while (SDL_PollEvent(&e) != 0)
 		{
 			if (e.type == SDL_QUIT)
@@ -70,57 +64,27 @@ int main()
 			}
 		}
 
-		LAST = NOW;
-		NOW = SDL_GetPerformanceCounter();
-
-		deltaTime = (double)((NOW - LAST) * 1000 / (double)SDL_GetPerformanceFrequency());
-
-		bool swap = false;
-		for (auto i = 0; i < SCREEN_HEIGHT; i++)
+		float avgFPS = countedFrames / (fpsTimer.GetTicks() / 1000.0f);
+		if (avgFPS > 2000000)
 		{
-			for (auto j = 0; j < SCREEN_WIDTH; j++)
-			{
-				if (swap)
-				{
-					if ((i * SCREEN_WIDTH + j) % 2 != 0)
-					{
-						pixels[i * SCREEN_WIDTH + j] = RGBAToInt(g, g, g, 255);
-					}
-				}
-				else
-				{
-					if ((i * SCREEN_WIDTH + j) % 2 == 0)
-					{
-						pixels[i * SCREEN_WIDTH + j] = RGBAToInt(g, g, g, 255);
-					}
-				}
-			}
-			swap = !swap;
-		}
-		screen->UpdateScreen(pixels);
-
-		if (timer <= 0.0f)
-		{
-			g += adder;
-			if (g >= 255)
-			{
-				adder = -1;
-			}
-			else if (g <= 0)
-			{
-				adder = 1;
-			}
-			timer = timeBetween;
-		}
-		else
-		{
-			timer -= deltaTime;
+			avgFPS = 0;
 		}
 
+		deltaTime = (fpsTimer.GetTicks() / 1000.0f) - previousTime;
+		previousTime = fpsTimer.GetTicks() / 1000.0f;
+
+		emulator.Tick(deltaTime);
+		screen->UpdateScreen(emulator.GetPixelBuffer());
 		screen->Render();
+		++countedFrames;
+
+		int frameTicks = capTimer.GetTicks();
+		if (frameTicks < SCREEN_TICKS_PER_FRAME)
+		{
+			SDL_Delay(SCREEN_TICKS_PER_FRAME - frameTicks);
+		}
 	}
 
-	delete[] pixels;
 	delete screen;
 	SDL_DestroyWindow(window);
 	SDL_Quit();
