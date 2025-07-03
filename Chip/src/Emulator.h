@@ -19,6 +19,7 @@ namespace Chip
 
 	private:
 		void InitFont();
+		void ClearScreen();
 
 	private:
 		struct Registers
@@ -34,6 +35,7 @@ namespace Chip
 		uint32_t* m_PixelBuffer = nullptr;
 		uint8_t* m_RAM = nullptr;
 		uint16_t m_ProgramSize;
+		bool temp;
 
 		std::stack<uint16_t> m_Stack;
 		
