@@ -123,6 +123,11 @@ namespace Chip
 		if (m_Registers.SoundTimer > 0)
 		{
 			m_Registers.SoundTimer -= 1;
+			m_Audio.Play();
+		}
+		else
+		{
+			m_Audio.Stop();
 		}
 
 		// Fetch
@@ -272,7 +277,7 @@ namespace Chip
 				break;
 			case 0xE:
 				m_Registers.GeneralPurpose[nibTwo] = m_Registers.GeneralPurpose[nibThree];
-				m_Registers.GeneralPurpose[15] = (m_Registers.GeneralPurpose[nibTwo] >> 8) & 1;
+				m_Registers.GeneralPurpose[15] = (m_Registers.GeneralPurpose[nibTwo] >> 7) & 1;
 				m_Registers.GeneralPurpose[nibTwo] <<= 1;
 				break;
 			}
@@ -406,19 +411,9 @@ namespace Chip
 			case 0x33:
 			{
 				uint8_t value = m_Registers.GeneralPurpose[nibTwo];
-				if (value == 0)
-				{
-					m_RAM[m_Registers.Index] = 0;
-				}
-				else
-				{
-					int size = trunc(log10(value)) + 1;
-					for (int i = 0; i < size; i++)
-					{
-						m_RAM[m_Registers.Index + i] = value;
-						value /= 10;
-					}
-				}
+				m_RAM[m_Registers.Index] = value / 100;
+				m_RAM[m_Registers.Index + 1] = (value / 10) % 10;
+				m_RAM[m_Registers.Index + 2] = (value % 100) % 10;
 				break;
 			}
 			case 0x55:
@@ -429,7 +424,7 @@ namespace Chip
 				}
 				else
 				{
-					for (auto i = 0; i < nibTwo; i++)
+					for (auto i = 0; i <= nibTwo; i++)
 					{
 						m_RAM[m_Registers.Index + i] = m_Registers.GeneralPurpose[i];
 					}
@@ -444,7 +439,7 @@ namespace Chip
 				}
 				else
 				{
-					for (auto i = 0; i < nibTwo; i++)
+					for (auto i = 0; i <= nibTwo; i++)
 					{
 						m_Registers.GeneralPurpose[i] = m_RAM[m_Registers.Index + i];
 					}
@@ -508,6 +503,34 @@ namespace Chip
 				<< std::hex << std::uppercase
 				<< std::setw(2) << std::setfill('0')
 				<< (uint16_t)m_Registers.GeneralPurpose[i] << std::endl;
+		}
+	}
+
+	void Emulator::DumpRam(uint16_t start, uint16_t end)
+	{
+		std::cout << "RAM (0x";
+		std::cout
+			<< std::hex << std::uppercase
+			<< std::setw(4) << std::setfill('0')
+			<< start;
+		std::cout << " -> 0x";
+		std::cout
+			<< std::hex << std::uppercase
+			<< std::setw(4) << std::setfill('0')
+			<< end;
+		std::cout << ")" << std::endl;
+
+		for (auto i = start; i <= end; i++)
+		{
+			if ((i - start) % 16 == 0)
+			{
+				std::cout << std::endl;
+			}
+
+			std::cout
+				<< std::hex << std::uppercase
+				<< std::setw(2) << std::setfill('0')
+				<< (uint16_t)m_RAM[i] << " ";
 		}
 	}
 

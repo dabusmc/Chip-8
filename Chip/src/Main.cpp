@@ -18,7 +18,7 @@ const int SCREEN_TICKS_PER_FRAME = 1000 / TARGET_FPS;
 
 int main()
 {
-	if (SDL_Init(SDL_INIT_VIDEO) != 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
 	{
 		SDL_Log("Unable to intialize SDL: %s", SDL_GetError());
 		return 1;
@@ -38,7 +38,7 @@ int main()
 	}
 
 	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
-	Chip::Emulator emulator("ibm");
+	Chip::Emulator emulator("morse_demo");
 	//emulator.Pause();
 
 	bool loop = true;
@@ -86,6 +86,18 @@ int main()
 					std::cout << std::endl;
 					emulator.DumpGP();
 					std::cout << std::endl;
+				}
+				else if (e.key.keysym.sym == SDLK_m)
+				{
+					std::cout << "Start: ";
+					uint16_t start;
+					std::cin >> start;
+
+					std::cout << "End: ";
+					uint16_t end;
+					std::cin >> end;
+
+					emulator.DumpRam(start, end);
 				}
 			}
 		}

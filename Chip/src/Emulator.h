@@ -7,6 +7,8 @@
 
 #include <SDL.h>
 
+#include "AudioEngine.h"
+
 namespace Chip
 {
 	class Emulator
@@ -30,6 +32,7 @@ namespace Chip
 		void DumpIndex();
 		void DumpTimers();
 		void DumpGP();
+		void DumpRam(uint16_t start, uint16_t end);
 
 	private:
 		void InitFont();
@@ -56,5 +59,6 @@ namespace Chip
 		std::vector<SDL_Scancode> m_KeycodeRelationList;
 		
 		Registers m_Registers;
+		AudioEngine m_Audio;
 	};
 }
