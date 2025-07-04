@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
+#include <sstream>
 
 #include <SDL.h>
 #undef main
@@ -38,7 +39,7 @@ int main()
 	}
 
 	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
-	Chip::Emulator emulator("morse_demo");
+	Chip::Emulator emulator("heart_monitor");
 	//emulator.Pause();
 
 	bool loop = true;
@@ -46,6 +47,7 @@ int main()
 
 	Chip::Timer fpsTimer;
 	Chip::Timer capTimer;
+	std::stringstream timeText;
 
 	float deltaTime = 0.0f;
 	float previousTime = 0.0f;
@@ -107,6 +109,13 @@ int main()
 		{
 			avgFPS = 0;
 		}
+
+		timeText.str("");
+		timeText << "CHIP-8 ::: ";
+		timeText << avgFPS;
+		timeText << " FPS";
+
+		SDL_SetWindowTitle(window, timeText.str().c_str());
 
 		deltaTime = (fpsTimer.GetTicks() / 1000.0f) - previousTime;
 		previousTime = fpsTimer.GetTicks() / 1000.0f;

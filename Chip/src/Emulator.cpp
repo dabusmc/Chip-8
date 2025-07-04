@@ -306,7 +306,9 @@ namespace Chip
 		}
 		case 0xC:
 		{
-			// RANDOM NUMBER
+			uint8_t randVal = std::rand() % 256;
+			uint8_t value = (nibThree << 4) | nibFour;
+			m_Registers.GeneralPurpose[nibTwo] = randVal & value;
 			break;
 		}
 		case 0xD:
