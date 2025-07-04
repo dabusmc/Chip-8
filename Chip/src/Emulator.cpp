@@ -1,9 +1,13 @@
 #include "Emulator.h"
 
+#include "Debug.h"
+
 #include "Files/FileUtils.h"
 #include "Files/BinaryFileReader.h"
 
 #include <iostream>
+#include <iomanip>
+#include <cmath>
 
 #define KB 1024
 
@@ -29,16 +33,65 @@ namespace Chip
 		BinaryFileReader reader(romPath);
 		m_RAM = new uint8_t[4 * KB];
 
-		temp = false;
+		m_Paused = false;
 
 		m_ProgramSize = reader.GetSize();
 		memcpy(m_RAM + PROGRAM_ADDRESS, reader.GetContents(), m_ProgramSize);
 
 		m_Registers.PC = PROGRAM_ADDRESS;
-		m_Registers.DelayTimer = 60;
-		m_Registers.SoundTimer = 60;
+		m_Registers.DelayTimer = 0;
+		m_Registers.SoundTimer = 0;
 		m_Registers.Index = 0;
 		m_Registers.GeneralPurpose = new uint8_t[16];
+
+
+		/*
+			1	2	3	C
+			4	5	6	D
+			7	8	9	E
+			A	0	B	F
+
+			1	2	3	4
+			Q	W	E	R
+			A	S	D	F
+			Z	X	C	V
+		*/
+
+		m_KeycodeRelationList = std::vector<SDL_Scancode>
+		{
+			// 0
+			SDL_SCANCODE_X,
+			// 1
+			SDL_SCANCODE_1,
+			// 2
+			SDL_SCANCODE_2,
+			// 3
+			SDL_SCANCODE_3,
+			// 4
+			SDL_SCANCODE_Q,
+			// 5
+			SDL_SCANCODE_W,
+			// 6
+			SDL_SCANCODE_E,
+			// 7
+			SDL_SCANCODE_A,
+			// 8
+			SDL_SCANCODE_S,
+			// 9
+			SDL_SCANCODE_D,
+			// A
+			SDL_SCANCODE_Z,
+			// B
+			SDL_SCANCODE_C,
+			// C
+			SDL_SCANCODE_4,
+			// D
+			SDL_SCANCODE_R,
+			// E
+			SDL_SCANCODE_F,
+			// F
+			SDL_SCANCODE_V
+		};
 
 		InitFont();
 
@@ -53,11 +106,15 @@ namespace Chip
 		delete[] m_RAM;
 	}
 
-	void Emulator::Tick(float deltaTime)
+	void Emulator::Tick()
 	{
-		if (temp)
+		if (m_Paused)
 			return;
+		Step();
+	}
 
+	void Emulator::Step()
+	{
 		if (m_Registers.DelayTimer > 0)
 		{
 			m_Registers.DelayTimer -= 1;
@@ -73,6 +130,11 @@ namespace Chip
 		uint8_t instructionB = m_RAM[m_Registers.PC + 1];
 		m_Registers.PC += 2;
 		uint16_t instruction = (instructionA << 8) | instructionB;
+
+		if (m_Paused)
+		{
+			Debug::PrintInstruction(instruction);
+		}
 
 		// Decode
 		uint8_t nibOne = (instructionA & 0xF0) >> 4;
@@ -175,7 +237,7 @@ namespace Chip
 				}
 
 				m_Registers.GeneralPurpose[nibTwo] += m_Registers.GeneralPurpose[nibThree];
-				
+
 				break;
 			case 5:
 				if (m_Registers.GeneralPurpose[nibTwo] > m_Registers.GeneralPurpose[nibThree])
@@ -245,11 +307,208 @@ namespace Chip
 		case 0xD:
 		{
 			// DISPLAY INSTRUCTION
+			uint8_t xInit = m_Registers.GeneralPurpose[nibTwo] & (SCREEN_WIDTH - 1);
+			uint8_t y = m_Registers.GeneralPurpose[nibThree] & (SCREEN_HEIGHT - 1);
+			m_Registers.GeneralPurpose[15] = 0;
+
+			for (auto i = 0; i < nibFour; i++)
+			{
+				if (y >= SCREEN_HEIGHT)
+				{
+					break;
+				}
+
+				uint8_t currentByte = m_RAM[m_Registers.Index + i];
+				uint8_t x = xInit;
+
+				for (auto mask = 0x80; mask != 0; mask >>= 1)
+				{
+					if (x >= SCREEN_WIDTH)
+					{
+						break;
+					}
+
+					if (currentByte & mask)
+					{
+						// The current bit is 1
+						if (m_PixelBuffer[y * SCREEN_WIDTH + x] == WHITE)
+						{
+							m_Registers.GeneralPurpose[15] = 1;
+						}
+						SwapPixelAt(x, y);
+					}
+
+					x += 1;
+				}
+
+				y += 1;
+			}
+
+			break;
+		}
+		case 0xE:
+		{
+			if (instructionB == 0x9E)
+			{
+				const uint8_t* keystates = SDL_GetKeyboardState(nullptr);
+				if (keystates[m_KeycodeRelationList[m_Registers.GeneralPurpose[nibTwo]]])
+				{
+					m_Registers.PC += 2;
+				}
+			}
+			else if (instructionB == 0xA1)
+			{
+				const uint8_t* keystates = SDL_GetKeyboardState(nullptr);
+				if (!keystates[m_KeycodeRelationList[m_Registers.GeneralPurpose[nibTwo]]])
+				{
+					m_Registers.PC += 2;
+				}
+			}
+
+			break;
+		}
+		case 0xF:
+		{
+			switch (instructionB)
+			{
+			case 0x07:
+				m_Registers.GeneralPurpose[nibTwo] = m_Registers.DelayTimer;
+				break;
+			case 0x15:
+				m_Registers.DelayTimer = m_Registers.GeneralPurpose[nibTwo];
+				break;
+			case 0x18:
+				m_Registers.SoundTimer = m_Registers.GeneralPurpose[nibTwo];
+				break;
+			case 0x1E:
+				m_Registers.GeneralPurpose[15] = (m_Registers.Index + m_Registers.GeneralPurpose[nibTwo]) >= 0x1000 ? 1 : 0;
+				m_Registers.Index += m_Registers.GeneralPurpose[nibTwo];
+				break;
+			case 0x0A:
+			{
+				uint8_t key = AnyKeyPressed();
+				if (key == 20)
+				{
+					m_Registers.PC -= 2;
+				}
+				else
+				{
+					m_Registers.GeneralPurpose[nibTwo] = key;
+				}
+				break;
+			}
+			case 0x29:
+			{
+				uint8_t character = m_Registers.GeneralPurpose[nibTwo] & 0x0F;
+				m_Registers.Index = FONT_OFFSET + (5 * character);
+				break;
+			}
+			case 0x33:
+			{
+				uint8_t value = m_Registers.GeneralPurpose[nibTwo];
+				if (value == 0)
+				{
+					m_RAM[m_Registers.Index] = 0;
+				}
+				else
+				{
+					int size = trunc(log10(value)) + 1;
+					for (int i = 0; i < size; i++)
+					{
+						m_RAM[m_Registers.Index + i] = value;
+						value /= 10;
+					}
+				}
+				break;
+			}
+			case 0x55:
+			{
+				if (nibTwo == 0)
+				{
+					m_RAM[m_Registers.Index] = m_Registers.GeneralPurpose[0];
+				}
+				else
+				{
+					for (auto i = 0; i < nibTwo; i++)
+					{
+						m_RAM[m_Registers.Index + i] = m_Registers.GeneralPurpose[i];
+					}
+				}
+				break;
+			}
+			case 0x65:
+			{
+				if (nibTwo == 0)
+				{
+					m_Registers.GeneralPurpose[0] = m_RAM[m_Registers.Index];
+				}
+				else
+				{
+					for (auto i = 0; i < nibTwo; i++)
+					{
+						m_Registers.GeneralPurpose[i] = m_RAM[m_Registers.Index + i];
+					}
+				}
+				break;
+			}
+			default:
+				break;
+			}
 			break;
 		}
 		}
+	}
 
-		temp = true;
+	void Emulator::Pause()
+	{
+		m_Paused = true;
+	}
+
+	void Emulator::Unpause()
+	{
+		m_Paused = false;
+	}
+
+	void Emulator::DumpRegisters()
+	{
+		std::cout << "Registers" << std::endl;
+		DumpPC();
+		DumpIndex();
+		DumpTimers();
+		DumpGP();
+	}
+
+	void Emulator::DumpPC()
+	{
+		std::cout << "Program Counter: "
+			<< std::hex << std::uppercase
+			<< std::setw(4) << std::setfill('0')
+			<< m_Registers.PC << std::endl;
+	}
+
+	void Emulator::DumpIndex()
+	{
+		std::cout << "Index: 0x"
+			<< std::hex << std::uppercase
+			<< std::setw(4) << std::setfill('0')
+			<< m_Registers.Index << std::endl;
+	}
+
+	void Emulator::DumpTimers()
+	{
+		std::cout << "Delay Timer: " << std::to_string(m_Registers.DelayTimer) << std::endl;
+		std::cout << "Sound Timer: " << std::to_string(m_Registers.SoundTimer) << std::endl;
+	}
+
+	void Emulator::DumpGP()
+	{
+		for (auto i = 0; i < 16; i++)
+		{
+			std::cout << "V" << i << ": "
+				<< std::hex << std::uppercase
+				<< std::setw(2) << std::setfill('0')
+				<< (uint16_t)m_Registers.GeneralPurpose[i] << std::endl;
+		}
 	}
 
 	void Emulator::SwapPixelAt(uint8_t x, uint8_t y)
@@ -303,5 +562,19 @@ namespace Chip
 				m_PixelBuffer[j * SCREEN_WIDTH + i] = BLACK;
 			}
 		}
+	}
+
+	uint8_t Emulator::AnyKeyPressed()
+	{
+		const uint8_t* keystates = SDL_GetKeyboardState(nullptr);
+		for (uint8_t i = 0; i < m_KeycodeRelationList.size(); i++)
+		{
+			if (keystates[m_KeycodeRelationList[i]])
+			{
+				return i;
+			}
+		}
+
+		return 20;
 	}
 }

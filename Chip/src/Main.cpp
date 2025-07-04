@@ -39,6 +39,7 @@ int main()
 
 	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
 	Chip::Emulator emulator("ibm");
+	//emulator.Pause();
 
 	bool loop = true;
 	SDL_Event e;
@@ -62,6 +63,31 @@ int main()
 			{
 				loop = false;
 			}
+			else if (e.type == SDL_KEYDOWN && emulator.IsPaused())
+			{
+				if (e.key.keysym.sym == SDLK_RETURN)
+				{
+					emulator.Step();
+				}
+				else if (e.key.keysym.sym == SDLK_r)
+				{
+					std::cout << std::endl;
+					emulator.DumpRegisters();
+					std::cout << std::endl;
+				}
+				else if (e.key.keysym.sym == SDLK_i)
+				{
+					std::cout << std::endl;
+					emulator.DumpIndex();
+					std::cout << std::endl;
+				}
+				else if (e.key.keysym.sym == SDLK_g)
+				{
+					std::cout << std::endl;
+					emulator.DumpGP();
+					std::cout << std::endl;
+				}
+			}
 		}
 
 		float avgFPS = countedFrames / (fpsTimer.GetTicks() / 1000.0f);
@@ -73,7 +99,7 @@ int main()
 		deltaTime = (fpsTimer.GetTicks() / 1000.0f) - previousTime;
 		previousTime = fpsTimer.GetTicks() / 1000.0f;
 
-		emulator.Tick(deltaTime);
+		emulator.Tick();
 		screen->UpdateScreen(emulator.GetPixelBuffer());
 		screen->Render();
 		++countedFrames;

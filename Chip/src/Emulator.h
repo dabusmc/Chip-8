@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <string>
 #include <stack>
+#include <vector>
+
+#include <SDL.h>
 
 namespace Chip
 {
@@ -12,14 +15,26 @@ namespace Chip
 		Emulator(const std::string& rom);
 		~Emulator();
 
-		void Tick(float deltaTime);
+		void Tick();
+		void Step();
 		void SwapPixelAt(uint8_t x, uint8_t y);
 
 		uint32_t* GetPixelBuffer() { return m_PixelBuffer; }
+		bool IsPaused() { return m_Paused; }
+
+		void Pause();
+		void Unpause();
+
+		void DumpRegisters();
+		void DumpPC();
+		void DumpIndex();
+		void DumpTimers();
+		void DumpGP();
 
 	private:
 		void InitFont();
 		void ClearScreen();
+		uint8_t AnyKeyPressed();
 
 	private:
 		struct Registers
@@ -35,9 +50,10 @@ namespace Chip
 		uint32_t* m_PixelBuffer = nullptr;
 		uint8_t* m_RAM = nullptr;
 		uint16_t m_ProgramSize;
-		bool temp;
+		bool m_Paused;
 
 		std::stack<uint16_t> m_Stack;
+		std::vector<SDL_Scancode> m_KeycodeRelationList;
 		
 		Registers m_Registers;
 	};
