@@ -29,8 +29,7 @@ namespace Chip
 
 	Emulator::Emulator(const std::string& rom)
 	{
-		std::string romPath = FileUtils::GetCWD() + "/roms/" + rom + ".ch8";
-		BinaryFileReader reader(romPath);
+		BinaryFileReader reader(rom);
 		m_RAM = new uint8_t[4 * KB];
 
 		m_Paused = false;

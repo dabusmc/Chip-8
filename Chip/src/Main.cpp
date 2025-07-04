@@ -3,6 +3,7 @@
 #include <string>
 #include <cmath>
 #include <sstream>
+#include <fstream>
 
 #include <SDL.h>
 #undef main
@@ -17,8 +18,47 @@
 
 const int SCREEN_TICKS_PER_FRAME = 1000 / TARGET_FPS;
 
-int main()
+bool isValidFilepath(const std::string& filepath)
 {
+	std::ifstream f(filepath);
+	if (!f.good())
+	{
+		std::cout << "Please enter a valid file path" << std::endl;
+		return false;
+	}
+
+	size_t extensionDot = filepath.find_last_of('.');
+
+	if (extensionDot == std::string::npos)
+	{
+		std::cout << "Please enter a valid .ch8 file" << std::endl;
+		return false;
+	}
+
+	std::string extension = filepath.substr(extensionDot);
+	if (extension != ".ch8")
+	{
+		std::cout << "Please enter a valid .ch8 file" << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+int main(int argc, char** argv)
+{
+	if (argc == 1)
+	{
+		std::cout << "Please enter a file to run" << std::endl;
+		return 1;
+	}
+
+	std::string filePath = std::string(argv[1]);
+	if (!isValidFilepath(filePath))
+	{
+		return 1;
+	}
+
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
 	{
 		SDL_Log("Unable to intialize SDL: %s", SDL_GetError());
@@ -39,7 +79,7 @@ int main()
 	}
 
 	Chip::Screen* screen = new Chip::Screen(window, SCREEN_WIDTH, SCREEN_HEIGHT);
-	Chip::Emulator emulator("heart_monitor");
+	Chip::Emulator emulator(filePath);
 	//emulator.Pause();
 
 	bool loop = true;
