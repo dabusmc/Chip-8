@@ -17,5 +17,6 @@ This project only supports Windows as that is my main development OS and there a
 In order to run the file, you will need a .ch8 ROM file to run. Some have been provided in the ```Chip/roms``` folder. Once you have acquired a ROM, you need to pass its full path as a command-line argument to run the solution. To do this from within Visual Studio, follow [this guide](https://condor.depaul.edu/glancast/393class/docs/helpdocs/cmdArgsInVS.html).
 
 ## Gallery
-![/images/ibm.png]
-![/images/cosmac.png]
+![ibm.ch8 result](images/ibm.PNG)
+
+![morse_demo.ch8 result](images/cosmac.PNG)
